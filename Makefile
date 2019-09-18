@@ -3,7 +3,7 @@ library_dir =
 include_dir = 
 libs = -lpthread
 objs = main.o functions.o md5.o bytearray.o rtsp_util.o rtsp_client.o rtsp_server.o rtp_protocol.o base64.o \
-	   sps_decode.o
+	   sps_decode.o rtsp_task.o
 exe = example
 c_flags = -g -std=c++11
 
@@ -19,6 +19,8 @@ bytearray.o:
 	$(cc) -c $(c_flags) src/bytearray.cpp
 functions.o:
 	$(cc) -c $(c_flags) src/functions.cpp
+rtsp_task.o:
+	$(cc) -c $(c_flags) src/rtsp_task.cpp
 rtsp_util.o:
 	$(cc) -c $(c_flags) src/rtsp_util.cpp
 rtsp_client.o:

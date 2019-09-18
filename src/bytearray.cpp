@@ -16,8 +16,10 @@ using namespace std;
 
 t_byte_array *create_byte_array(int size)
 {
-	t_byte_array *byte_array = (t_byte_array*)malloc(sizeof(t_byte_array));
-	byte_array->buffer = (char*)malloc(size);
+	t_byte_array *byte_array = (t_byte_array*)malloc(sizeof(t_byte_array) + size);
+	if(byte_array == NULL)
+		return NULL;
+
 	memset(byte_array->buffer, 0, size);
 	byte_array->total = size;
 	byte_array->size = 0;
@@ -34,9 +36,7 @@ t_byte_array *create_byte_array(int size)
 void free_byte_array(t_byte_array* &byte_array)
 {
 	if(byte_array == NULL)
-	{
 		return;
-	}
 
 	t_byte_array *tmp_byte_array = byte_array;
 	byte_array = NULL;

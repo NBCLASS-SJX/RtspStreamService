@@ -8,137 +8,7 @@
 //	描    述:  
 // =====================================================================================
 
-#include "functions.h"
 #include "rtsp_client.h"
-#include "rtsp_util.h"
-#include "base64.h"
-#include <string>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-
-int connect_server(char *ipaddr, int port)
-{
-	do{
-		int sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-		if(sockfd == -1) {
-			log_debug("socket() failed.", __FILE__, __LINE__);
-			break;
-		}
-
-		int recv_buf_size = 1024 * 1024 * 16;
-		if(setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, (char*)&recv_buf_size, sizeof(int))) {
-			log_debug("setsockopt() failed.", __FILE__, __LINE__);
-			close(sockfd);
-			break;
-		}
-
-		struct sockaddr_in sock_addr;
-		memset(&sock_addr, 0, sizeof(sock_addr));
-		sock_addr.sin_family = AF_INET;
-		sock_addr.sin_addr.s_addr = inet_addr(ipaddr);
-		sock_addr.sin_port = htons(port);
-
-		// 连接到设备
-		if(connect(sockfd, (struct sockaddr*)&sock_addr, sizeof(sockaddr_in)) == -1) {
-			log_debug("%s[%05d]: connect() error: %s", __FILE__, __LINE__, strerror(errno));
-			close(sockfd);
-			break;
-		}
-		return sockfd;
-	}while(0);
-	return -1;
-}
-
-/* 
- * url  rtsp链接
- * 解析传入的RTSP链接，返回 t_rtsp_info* 类型的对象
- * */
-t_rtsp_info *create_rtsp_clnt_info(const char*url)
-{
-	if(strncmp(url, "rtsp://", 7) != 0) {
-		return NULL;
-	}
-
-	string strUser;
-	string strPwd;
-	string strAddr;
-	string strPort;
-
-	string str = url;
-	int count = 0;
-	int pos = str.find("/", 7);
-	string strBase = str.substr(7, pos - 7);
-	string *args = get_part_string(strBase, "@", count);
-
-	if(count == 1) {
-		string *parts = get_part_string(args[0], ":", count);
-		if(parts != NULL) {
-			strAddr = parts[0];
-			if(count == 1)
-				strPort = "554";
-			else
-				strPort = parts[1];
-		} else {
-			free_part_string(args);
-			return NULL;
-		}
-		free_part_string(parts);
-		free_part_string(args);
-	} else if(count == 2) {
-		string *parts = get_part_string(args[0], ":", count);
-		if(parts != NULL && count == 2) {
-			strUser = parts[0];
-			strPwd = parts[1];
-		} else {
-			free_part_string(parts);
-			free_part_string(args);
-			return NULL;
-		}
-		free_part_string(parts);
-
-		parts = get_part_string(args[1], ":", count);
-		if(parts != NULL) {
-			strAddr = parts[0];
-			if(count == 1)
-				strPort = "554";
-			else
-				strPort = parts[1];
-		} else {
-			free_part_string(args);
-			return NULL;
-		}
-		free_part_string(parts);
-		free_part_string(args);
-	} else {
-		free_part_string(args);
-		return NULL;
-	}
-
-	t_rtsp_info *info = (t_rtsp_info*)malloc(sizeof(t_rtsp_info));
-	memset(info, 0, sizeof(t_rtsp_info));
-
-	memcpy(info->rtsp_url, url, strlen(url));
-	sprintf(info->username, "%s", strUser.c_str());
-	sprintf(info->password, "%s",  strPwd.c_str());
-	sprintf(info->ipaddr,   "%s", strAddr.c_str());
-	info->port = atoi(strPort.c_str());
-	info->secret = 0;
-	info->transtype = ENUM_RTSP_TRANSPORT_TCP;
-	info->channel_count = 0;
-	info->channel_step = 0;
-	return info;
-}
-
-void free_rtsp_clnt_info(t_rtsp_info *&info)
-{
-	if(info == NULL) {
-		return;
-	}
-	free(info);
-}
 
 // OPTIONS命令组包, 返回消息长度 
 int rtsp_cmd_options(t_rtsp_info *info, char *buffer, int cmd_seq)
@@ -191,35 +61,62 @@ int rtsp_cmd_setup(t_rtsp_info *info, char *buffer, int cmd_seq)
 		int id = info->channel_step * 2;
 		char interleaved[8] = { 0 };
 		sprintf(interleaved, "%d-%d", id, id + 1);
-		sprintf(buffer, "SETUP %s RTSP/1.0\r\n"
-						"CSeq: %d\r\n"
-						"Authorization: Basic %s\r\n"
-						"Transport: RTP/AVP/TCP;unicast;interleaved=%s\r\n"
-						"\r\n",
-						url.c_str(), cmd_seq, info->basic, interleaved);
+		if(strlen(info->session) != 0){
+			sprintf(buffer, "SETUP %s RTSP/1.0\r\n"
+							"CSeq: %d\r\n"
+							"Authorization: Basic %s\r\n"
+							"Transport: RTP/AVP/TCP;unicast;interleaved=%s\r\n"
+							"\r\n",
+							url.c_str(), cmd_seq, info->basic, interleaved);
+		}else{
+			sprintf(buffer, "SETUP %s RTSP/1.0\r\n"
+							"CSeq: %d\r\n"
+							"Authorization: Basic %s\r\n"
+							"Transport: RTP/AVP/TCP;unicast;interleaved=%s\r\n"
+							"\r\n",
+							url.c_str(), cmd_seq, info->basic, interleaved);
+		}
 	} else if(info->secret == 2) {
 		string url = info->channel_data[info->channel_step].url;
 		int id = info->channel_step * 2;
 		char interleaved[8] = { 0 };
 		sprintf(interleaved, "%d-%d", id, id + 1);
 		string response = get_md5_response(info, "SETUP", url);
-		sprintf(buffer, "SETUP %s RTSP/1.0\r\n"
-						"CSeq: %d\r\n"
-						"Transport: RTP/AVP/TCP;unicast;interleaved=%s\r\n"
-						"Authorization: Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"\r\n"
-						"\r\n",
-						url.c_str(), cmd_seq, interleaved, 
-						info->username, info->realm,info->nonce, url.c_str(), response.c_str());
+		if(strlen(info->session) != 0){
+			sprintf(buffer, "SETUP %s RTSP/1.0\r\n"
+							"CSeq: %d\r\n"
+							"Transport: RTP/AVP/TCP;unicast;interleaved=%s\r\n"
+							"Authorization: Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"\r\n"
+							"\r\n",
+							url.c_str(), cmd_seq, interleaved, 
+							info->username, info->realm,info->nonce, url.c_str(), response.c_str());
+		}else{
+			sprintf(buffer, "SETUP %s RTSP/1.0\r\n"
+							"CSeq: %d\r\n"
+							"Transport: RTP/AVP/TCP;unicast;interleaved=%s\r\n"
+							"Authorization: Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"\r\n"
+							"\r\n",
+							url.c_str(), cmd_seq, interleaved, 
+							info->username, info->realm,info->nonce, url.c_str(), response.c_str());
+		}
 	} else {
 		string url = info->channel_data[info->channel_step].url;
 		int id = info->channel_step * 2;
 		char interleaved[8] = { 0 };
 		sprintf(interleaved, "%d-%d", id, id + 1);
-		sprintf(buffer, "SETUP %s RTSP/1.0\r\n"
-						"CSeq: %d\r\n"
-						"Transport: RTP/AVP/TCP;unicast;interleaved=%s\r\n"
-						"\r\n",
-						url.c_str(), cmd_seq, interleaved);
+		if(strlen(info->session) != 0){
+			sprintf(buffer, "SETUP %s RTSP/1.0\r\n"
+							"CSeq: %d\r\n"
+							"Transport: RTP/AVP/TCP;unicast;interleaved=%s\r\n"
+							"\r\n",
+							url.c_str(), cmd_seq, interleaved);
+		}else{
+			sprintf(buffer, "SETUP %s RTSP/1.0\r\n"
+							"CSeq: %d\r\n"
+							"Transport: RTP/AVP/TCP;unicast;interleaved=%s\r\n"
+							"\r\n",
+							url.c_str(), cmd_seq, interleaved);
+		}
 	}
 	return strlen(buffer);
 }
@@ -637,100 +534,5 @@ int rtsp_parse_reply(t_rtsp_info *info, char *buffer, int buflen, int step)
 			break;
 	}
 	return ret;
-}
-
-// RTSP视频流请求封装
-bool rtsp_request(t_rtsp_info *info, int sockfd)
-{
-	char sndbuf[MAX_BUF_SIZE] = { 0 };
-	char rcvbuf[MAX_BUF_SIZE] = { 0 };
-	int result = 0;
-	int length = 0;
-
-	int seq = 0;
-	int step = 0;
-
-	while(true) {
-		memset(sndbuf, 0, MAX_BUF_SIZE);
-		memset(rcvbuf, 0, MAX_BUF_SIZE);
-
-		length = rtsp_cmd(info, sndbuf, step, seq++);
-		result = send_rtsp_message(sockfd, sndbuf, length);
-		if(result < 0) {
-			log_debug("send rtsp command error:%d\n"
-					  "send message:\n"
-					  "%s", 
-					  result, sndbuf);
-			close(sockfd);
-			return false;
-		}
-
-		length = recv_rtsp_message(sockfd, rcvbuf, MAX_BUF_SIZE);
-		if(length <= 0) {
-			log_debug("recv rtsp response error:%d\n"
-					  "send message:\n"
-					  "%s", 
-					  length, sndbuf);
-			close(sockfd);
-			return false;
-		}
-
-		result = rtsp_parse_reply(info, rcvbuf, length, step);
-
-		if(step == ENUM_RTSP_OPTIONS) {
-			if(result == 0) {
-				step = ENUM_RTSP_DESCRIBE;
-			} else if(result == 1) {
-				continue;
-			} else if(result == -1) {
-				log_debug("parse options error, send message:\n"
-						"%s\n"
-						"recv message:\n"
-						"%s", sndbuf, rcvbuf);
-				close(sockfd);
-				return false;
-			}
-		} else if(step == ENUM_RTSP_DESCRIBE) {
-			if(result == 0) {
-				step = ENUM_RTSP_SETUP;
-			} else if(result == 1) {
-				continue;
-			} else if(result == -1) {
-				log_debug("parse describe error, send message:\n"
-						"%s\n"
-						"recv message:\n"
-						"%s", sndbuf, rcvbuf);
-				close(sockfd);
-				return false;
-			}
-		} else if(step == ENUM_RTSP_SETUP) {
-			if(result == 0) {
-				if(info->channel_step != info->channel_count) {
-					continue;
-				} else {
-					step = ENUM_RTSP_PLAY;
-				}
-			} else if(result == -1) {
-				log_debug("parse setup error, send message:\n"
-						"%s\n"
-						"recv message:\n"
-						"%s", sndbuf, rcvbuf);
-				close(sockfd);
-				return false;
-			}
-		} else if(step == ENUM_RTSP_PLAY) {
-			if(result == 0){
-				break;
-			} else if(result == -1) {
-				log_debug("parse play error, send message:\n"
-						"%s\n"
-						"recv message:\n"
-						"%s", sndbuf, rcvbuf);
-				close(sockfd);
-				return false;
-			}
-		}
-	}
-	return true;
 }
 

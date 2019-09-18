@@ -101,10 +101,16 @@ int parse_nalu(rtp_h264_nalu_t *nalu, unsigned char *buffer, int length)
 		return pos + n;
 	} else if(nalu_hdr.type == 25){
 		log_debug("nalu type, %d.", nalu_hdr.type);
+		nalu->size = 0;
+		nalu->finish = false;
 	} else if(nalu_hdr.type == 26){
 		log_debug("nalu type, %d.", nalu_hdr.type);
+		nalu->size = 0;
+		nalu->finish = false;
 	} else if(nalu_hdr.type == 27){
 		log_debug("nalu type, %d.", nalu_hdr.type);
+		nalu->size = 0;
+		nalu->finish = false;
 	} else if(nalu_hdr.type == 28) {
 		int s = (buffer[pos] >> 7) & 0x01;
 		int e = (buffer[pos] >> 6) & 0x01;
@@ -125,23 +131,13 @@ int parse_nalu(rtp_h264_nalu_t *nalu, unsigned char *buffer, int length)
 		} else if(e) {
 			if(nalu->size == 0)
 				return 0;
-
-			// 超过预设最大长度则清空,防止内存溢出,导致崩溃
-			int tmplen = length - pos + nalu->size;
-			if(tmplen > 1024 * 1024 * 32){
-				nalu->size = 0;
-				nalu->finish = false;
-				return 0;
-			}
-
 			pos += 1;
 			memcpy(nalu->data + nalu->size, buffer + pos, length - pos);
-			nalu->size = tmplen;
+			nalu->size = length - pos + nalu->size;
 			nalu->finish = true;
 		} else {
 			if(nalu->size == 0)
 				return 0;
-
 			pos += 1;
 			memcpy(nalu->data + nalu->size, buffer + pos, length - pos);
 			nalu->size = length - pos + nalu->size;
@@ -149,8 +145,12 @@ int parse_nalu(rtp_h264_nalu_t *nalu, unsigned char *buffer, int length)
 		return 0;
 	} else if(nalu_hdr.type == 29){
 		log_debug("nalu type, %d.", nalu_hdr.type);
+		nalu->size = 0;
+		nalu->finish = false;
 	} else {
 		log_debug("parse_nalu error, unknown message, %d.", nalu_hdr.type);
+		nalu->size = 0;
+		nalu->finish = false;
 	}
 	return -1;
 }

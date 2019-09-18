@@ -11,20 +11,9 @@
 #ifndef RTSP_SERVER_H_H_H
 #define RTSP_SERVER_H_H_H
 
+#include "functions.h"
+#include "rtsp_util.h"
 #include "rtsp_struct.h"
-
-// 开启端口
-int create_server_socket(int port);
-// 返回对象
-t_rtsp_info *create_rtsp_serv_info(t_rtsp_info *info, const char *itf_url, const char *localip);
-t_rtsp_info *create_rtsp_serv_info(t_rtsp_info *info, const char *itf_url, const char *localip, const char *port);
-t_rtsp_info *create_rtsp_serv_info(t_rtsp_info *info, const char *itf_url, const char *localip, const char *username, const char *password);
-t_rtsp_info *create_rtsp_serv_info(t_rtsp_info *info, const char *itf_url, const char *localip, const char *port, 
-		const char *username, const char *password);
-// 释放内存
-void free_rtsp_serv_info(t_rtsp_info *&info);
-// rtsp应答
-bool rtsp_response(t_rtsp_info *info, int sockfd);
 
 int rtsp_process_options(t_rtsp_info *info, char *buffer, int &buflen);
 int rtsp_process_describe(t_rtsp_info *info, char *buffer, int &buflen);

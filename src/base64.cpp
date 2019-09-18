@@ -39,10 +39,6 @@ std::string ToBase64(const char *msg, int len)
 	return ret;
 }
 
-int FromBase64(const char *msg)
-{
-}
-
 std::string Base64Encode(const char *msg, int len)
 {
 	std::ostringstream oss;
@@ -53,9 +49,5 @@ std::string Base64Encode(const char *msg, int len)
 	}
 	oss << ToBase64(msg + len - remain, remain);
 	return oss.str();
-}
-
-void Base64Decode(const char *base64)
-{
 }
 

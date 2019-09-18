@@ -21,7 +21,6 @@
 
 typedef struct
 {
-	char *buffer;
 	int size;
 	int total;
 	int head;
@@ -31,6 +30,7 @@ typedef struct
 #else
 	CRITICAL_SECTION cs;
 #endif
+	char buffer[0];
 }t_byte_array;
 
 // 创建对象, 默认16M

@@ -11,14 +11,74 @@
 #ifndef _RTSP_STRUCT_H_H_H
 #define _RTSP_STRUCT_H_H_H
 
-#define MAX_BUF_SIZE (2048)
+
+/**********************************************************
+* Status code, 摘抄自RFC 7826
+* 
+/  "100"  ; Continue
+/  "200"  ; OK
+/  "301"  ; Moved Permanently
+/  "302"  ; Found
+/  "303"  ; See Other
+/  "304"  ; Not Modified
+/  "305"  ; Use Proxy
+/  "400"  ; Bad Request
+/  "401"  ; Unauthorized
+/  "402"  ; Payment Required
+/  "403"  ; Forbidden
+/  "404"  ; Not Found
+/  "405"  ; Method Not Allowed
+/  "406"  ; Not Acceptable
+/  "407"  ; Proxy Authentication Required
+/  "408"  ; Request Timeout
+/  "410"  ; Gone
+/  "412"  ; Precondition Failed
+/  "413"  ; Request Message Body Too Large
+/  "414"  ; Request-URI Too Long
+/  "415"  ; Unsupported Media Type
+/  "451"  ; Parameter Not Understood
+/  "452"  ; reserved
+/  "453"  ; Not Enough Bandwidth
+/  "454"  ; Session Not Found
+/  "455"  ; Method Not Valid In This State
+/  "456"  ; Header Field Not Valid for Resource
+/  "457"  ; Invalid Range
+/  "458"  ; Parameter Is Read-Only
+/  "459"  ; Aggregate Operation Not Allowed
+/  "460"  ; Only Aggregate Operation Allowed
+/  "461"  ; Unsupported Transport
+/  "462"  ; Destination Unreachable
+/  "463"  ; Destination Prohibited
+/  "464"  ; Data Transport Not Ready Yet
+/  "465"  ; Notification Reason Unknown
+/  "466"  ; Key Management Error
+/  "470"  ; Connection Authorization Required
+/  "471"  ; Connection Credentials Not Accepted
+/  "472"  ; Failure to Establish Secure Connection
+/  "500"  ; Internal Server Error
+/  "501"  ; Not Implemented
+/  "502"  ; Bad Gateway
+/  "503"  ; Service Unavailable
+/  "504"  ; Gateway Timeout
+/  "505"  ; RTSP Version Not Supported
+/  "551"  ; Option Not Supported
+/  "553"  ; Proxy Unavailable
+**********************************************************/
+
+#define SDP_ATTRIBUTE		(8)
+#define SDP_DATA_SIZE		(256)
+#define IPADDR_SIZE			(16)
+#define RTSP_URL_SIZE		(256)
 
 typedef enum {
-	ENUM_RTSP_OPTIONS = 0,
-	ENUM_RTSP_DESCRIBE = 1,
-	ENUM_RTSP_SETUP = 2,
-	ENUM_RTSP_PLAY = 3,
-	ENUM_RTSP_TEARDOWN = 4
+	ENUM_RTSP_OPTIONS 	= 0,
+	ENUM_RTSP_DESCRIBE 	= 1,
+	ENUM_RTSP_SETUP 	= 2,
+	ENUM_RTSP_PLAY 		= 3,
+	ENUM_RTSP_TEARDOWN 	= 4,
+	ENUM_RTSP_PAUSE 	= 5,
+	ENUM_RTSP_ANNOUNCE 	= 6,
+	ENUM_RTSP_RECORD 	= 7
 }enum_rtsp_step;
 
 typedef enum {
@@ -26,46 +86,74 @@ typedef enum {
 	ENUM_RTSP_TRANSPORT_UDP = 1
 }enum_rtsp_transport_type;
 
-typedef struct
-{
-	char url[128];
-	char transport[256];
+typedef enum {
+	ENUM_RTSP_AUTHORIZATION_NONE 	= 0,
+	ENUM_RTSP_AUTHORIZATION_BASIC 	= 1,
+	ENUM_RTSP_AUTHORIZATION_DIGEST 	= 2
+}enum_rtsp_authorization;
+
+typedef enum {
+	ENUM_RTSP_STREAM_VIDEO = 0,
+	ENUM_RTSP_STREAM_AUDIO = 1
+}enum_rtsp_stream_type;
+
+/* 媒体描述信息 */
+typedef struct{
+	int  stream_type;
+	char url[RTSP_URL_SIZE];
+	int  chn[2];
 	char ssrc[16];
-	char info[16][256];
-	int info_count;
-	int type;
-	int seq;
-	int rtptime;
-}t_rtsp_channel;
+	int  type;
+	int  seq;
+	int  rtptime;
 
-typedef struct
-{
-	// rtsp地址
-	char rtsp_url[128];
-	// enum_rtsp_transport_type
-	int transtype;
+	char m[SDP_DATA_SIZE];
+	char i[SDP_DATA_SIZE];
+	char c[SDP_DATA_SIZE];
+	char b[SDP_DATA_SIZE];
+	char k[SDP_DATA_SIZE];
+	char a[SDP_ATTRIBUTE][SDP_DATA_SIZE];
+}t_sdp_media;
 
-	// 只考虑音视频
-	int channel_count;
-	int channel_step;
-	t_rtsp_channel channel_data[2];
+/* 基础描述信息, RFC-4566 */
+typedef struct{
+	char v[SDP_DATA_SIZE];			/* 协议版本 */
+	char o[SDP_DATA_SIZE];			/* 所有者/创建者和会话标识符 */ 
+	char s[SDP_DATA_SIZE];			/* 会话名称 */
+	char i[SDP_DATA_SIZE];			/* 会话信息 */
+	char u[SDP_DATA_SIZE];			/* URI描述 */
+	char e[SDP_DATA_SIZE];			/* Email地址 */
+	char p[SDP_DATA_SIZE];			/* 电话号码 */
+	char c[SDP_DATA_SIZE];			/*  */
+	char b[SDP_DATA_SIZE];
+	char t[SDP_DATA_SIZE];			/* 时间描述信息 */
+	char r[SDP_DATA_SIZE];
+	char z[SDP_DATA_SIZE];
+	char k[SDP_DATA_SIZE];
+	char a[SDP_ATTRIBUTE][SDP_DATA_SIZE];
+}t_sdp_base;
 
-	char username[32];
-	char password[32];
-	char ipaddr[16];
-	int port;
+typedef struct{
+	t_sdp_base base;
+	t_sdp_media	media[4];
+	int media_count;
+}t_rtsp_sdp;
 
-	// 0. 无认证, 1.基本认证 2.摘要认证
-	int secret;
-	char session[64];
-	char nonce[64];
-	char realm[32];
-	char basic[128];
+typedef struct{
+	char rtsp_url[RTSP_URL_SIZE];
+	int  transport_type;
+	bool isAnnounce;
+	char username[RTSP_BASE_INFO_SIZE];
+	char password[RTSP_BASE_INFO_SIZE];
+	char ipaddr[IPADDR_SIZE];
+	int  port;
+	int  secret;								// 0. 无认证, 1.基本认证 2.摘要认证
+	char session[RTSP_BASE_INFO_SIZE];
+	char nonce[RTSP_BASE_INFO_SIZE];
+	char realm[RTSP_BASE_INFO_SIZE];
+	char basic[RTSP_BASE_INFO_SIZE];			// 基本认证
 
-	// 描述信息条数, base
-	int info_count;
-	// 描述信息
-	char base_info[16][256];
+	t_rtsp_sdp sdp;
 }t_rtsp_info;
 
 #endif

@@ -24,9 +24,7 @@ using namespace std;
 #include <sys/socket.h>
 #include "src/functions.h"
 #include "src/bytearray.h"
-#include "src/rtsp_util.h"
-#include "src/rtsp_client.h"
-#include "src/rtsp_server.h"
+#include "src/rtsp_task.h"
 #include "src/rtp_protocol.h"
 #include "src/sps_decode.h"
 
@@ -58,12 +56,14 @@ int main(int argc, char *argv[])
 	int sockfd = connect_server(clnt_rtsp_info->ipaddr, clnt_rtsp_info->port);
 	if(!rtsp_request(clnt_rtsp_info, sockfd)) {
 		log_debug("rtsp connect failed");
+		print_rtsp_info(clnt_rtsp_info);
+		free_rtsp_info(clnt_rtsp_info);
+		free_byte_array(rtp_array);
 		return EXIT_FAILURE;
 	} else {
 		log_debug("rtsp connect succeed");
+		print_rtsp_info(clnt_rtsp_info);
 	}
-
-	print_rtsp_info(clnt_rtsp_info);
 
 	pthread_mutex_init(&clntLock, NULL);
 	thread t1(bytes_process, (void*)NULL);
@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 	t1.join();
 	t2.join();
 	pthread_mutex_destroy(&clntLock);
-	free_rtsp_clnt_info(clnt_rtsp_info);
+	free_rtsp_info(clnt_rtsp_info);
 	
 	return EXIT_SUCCESS;
 }

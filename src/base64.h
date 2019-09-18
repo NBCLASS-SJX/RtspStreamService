@@ -59,7 +59,6 @@ static const unsigned char BASE64_MAP_DESC[256] =
 #include <cstring>
 
 std::string Base64Encode(const char *msg, int len);
-void Base64Decode(const char *base64);
 
 #endif
 

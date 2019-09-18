@@ -11,18 +11,14 @@
 #ifndef _RTSP_CLIENT_H_H_H
 #define _RTSP_CLIENT_H_H_H
 
+#include "base64.h"
+#include "functions.h"
+#include "rtsp_util.h"
 #include "rtsp_struct.h"
 
-// 连接到服务器
-int connect_server(char *ipaddr, int port);
-// 获取对象
-t_rtsp_info *create_rtsp_clnt_info(const char*url);
-// 释放对象
-void free_rtsp_clnt_info(t_rtsp_info *&info);
 // rtsp视频流请求
 int rtsp_cmd(t_rtsp_info *info, char *buffer, int step, int cmd_seq);
 int rtsp_parse_reply(t_rtsp_info *info, char *buffer, int buflen, int step);
-bool rtsp_request(t_rtsp_info *info, int sockfd);
 
 #endif
 
