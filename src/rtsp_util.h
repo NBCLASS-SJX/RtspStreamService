@@ -11,8 +11,11 @@
 #ifndef _RTSP_UTIL_H_H_H
 #define _RTSP_UTIL_H_H_H
 
-#include "functions.h"
+#include "common/kgr_utils.h"
+#include "common/kgr_logger.h"
+#include "encrypt/kgr_md5.h"
 #include "rtsp_struct.h"
+using namespace std;
 
 #define MAX_REVBUF_SIZE (1024 * 1024 * 16)
 

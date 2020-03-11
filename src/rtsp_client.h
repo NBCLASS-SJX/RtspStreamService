@@ -11,10 +11,8 @@
 #ifndef _RTSP_CLIENT_H_H_H
 #define _RTSP_CLIENT_H_H_H
 
-#include "base64.h"
-#include "functions.h"
+#include "encrypt/kgr_base64.h"
 #include "rtsp_util.h"
-#include "rtsp_struct.h"
 
 // rtsp视频流请求
 int rtsp_cmd(t_rtsp_info *info, char *buffer, int step, int cmd_seq);

@@ -65,6 +65,7 @@
 /  "553"  ; Proxy Unavailable
 **********************************************************/
 
+#define RTSP_BASE_INFO_SIZE (512)
 #define SDP_ATTRIBUTE		(8)
 #define SDP_DATA_SIZE		(256)
 #define IPADDR_SIZE			(16)

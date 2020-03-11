@@ -11,9 +11,7 @@
 #ifndef RTSP_SERVER_H_H_H
 #define RTSP_SERVER_H_H_H
 
-#include "functions.h"
 #include "rtsp_util.h"
-#include "rtsp_struct.h"
 
 int rtsp_process_options(t_rtsp_info *info, char *buffer, int &buflen);
 int rtsp_process_describe(t_rtsp_info *info, char *buffer, int &buflen);

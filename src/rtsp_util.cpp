@@ -8,9 +8,7 @@
 //	描    述:  
 // =====================================================================================
 
-#include "functions.h"
 #include "rtsp_util.h"
-#include "md5.h"
 #include <list>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,20 +51,19 @@ int recv_rtsp_message(int sockfd, char *buffer, int buflen)
 
 string get_md5_response(t_rtsp_info *info, string cmd, string url)
 {
-	MD5Encrypt md5;
 	char *src_part = (char*)malloc(1024);
 
 	memset(src_part, 0, 1024);
 	sprintf(src_part, "%s:%s:%s", info->username, info->realm, info->password);
-	string rsp1 = md5.MD5_Encrypt((unsigned char*)src_part, strlen(src_part));
+	string rsp1 = MD5EncryptHex((unsigned char*)src_part, strlen(src_part));
 
 	memset(src_part, 0, 1024);
 	sprintf(src_part, "%s:%s", cmd.c_str(), url.c_str());
-	string rsp2 = md5.MD5_Encrypt((unsigned char*)src_part, strlen(src_part));
+	string rsp2 = MD5EncryptHex((unsigned char*)src_part, strlen(src_part));
 
 	memset(src_part, 0, 1024);
 	sprintf(src_part, "%s:%s:%s", rsp1.c_str(), info->nonce, rsp2.c_str());
-	string rsp3 = md5.MD5_Encrypt((unsigned char*)src_part, strlen(src_part));
+	string rsp3 = MD5EncryptHex((unsigned char*)src_part, strlen(src_part));
 	free(src_part);
 
 	return rsp3;

@@ -22,13 +22,14 @@ using namespace std;
 #include <arpa/inet.h>
 #include <sys/select.h>
 #include <sys/socket.h>
-#include "src/functions.h"
-#include "src/bytearray.h"
+
+#include "src/common/kgr_bytes.h"
+#include "src/common/kgr_logger.h"
 #include "src/rtsp_task.h"
 #include "src/rtp_protocol.h"
 #include "src/sps_decode.h"
 
-t_byte_array *rtp_array;
+KgrByteArray *rtp_array;
 pthread_mutex_t clntLock;
 list<int> clnts;
 t_rtsp_info *clnt_rtsp_info = NULL;
@@ -50,15 +51,15 @@ int main(int argc, char *argv[])
 	sigaction(SIGSEGV, &sa, NULL);
 	sigaction(SIGPIPE, &sa, NULL);
 
-	string rtsp_url = GetConfigureString("RTSP.URL", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_115k.mov", CONFFILE);
-	rtp_array = create_byte_array(1024 * 1024 * 32);
+	string rtsp_url = GetConfigureString("RTSP.URL", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_115k.mov");
+	rtp_array = Kgr_ByteArrayCreate(1024 * 1024 * 32);
 	clnt_rtsp_info = create_rtsp_clnt_info(rtsp_url.c_str());
 	int sockfd = connect_server(clnt_rtsp_info->ipaddr, clnt_rtsp_info->port);
 	if(!rtsp_request(clnt_rtsp_info, sockfd)) {
 		log_debug("rtsp connect failed");
 		print_rtsp_info(clnt_rtsp_info);
 		free_rtsp_info(clnt_rtsp_info);
-		free_byte_array(rtp_array);
+		Kgr_ByteArrayFree(rtp_array);
 		return EXIT_FAILURE;
 	} else {
 		log_debug("rtsp connect succeed");
@@ -77,7 +78,7 @@ int main(int argc, char *argv[])
 			log_debug("end of stream");
 			break;
 		}
-		put_byte_array(rtp_array, buffer, n);
+		Kgr_ByteArrayPutData(rtp_array, buffer, n);
 	}
 
 	log_debug("well done");
@@ -114,8 +115,8 @@ void *bytes_process(void *arg)
 	int length = 0;
 	int ret = 0;
 
-	string savefile = GetConfigureString("savefile", "enable", CONFFILE);
-	string filename = GetConfigureString("filename", "test.mp4", CONFFILE);
+	string savefile = GetConfigureString("savefile", "enable");
+	string filename = GetConfigureString("filename", "test.mp4");
 	int fd = 0;
 	bool isSave = false;
 	rtp_h264_nalu_t *nalu = NULL;
@@ -129,7 +130,7 @@ void *bytes_process(void *arg)
 
 
 	while(true) {
-		ret = get_byte_array(rtp_array, (char*)buffer, 4);
+		ret = Kgr_ByteArrayGetData(rtp_array, (char*)buffer, 4);
 		if(ret <= 0) {
 			sleep(0.01);
 			continue;
@@ -139,12 +140,12 @@ void *bytes_process(void *arg)
 			length = buffer[2] * 256 + buffer[3];
 			if(buffer[0] != 0x24 || length > 2048) {
 				log_debug("reset byte array");
-				reset_byte_array(rtp_array);
+				Kgr_ByteArrayReset(rtp_array);
 				continue;
 			}
 
 			while(true) {
-				ret = get_byte_array(rtp_array, (char*)buffer + 4, length);
+				ret = Kgr_ByteArrayGetData(rtp_array, (char*)buffer + 4, length);
 				if(ret > 0) {
 					break;
 				}
@@ -215,8 +216,8 @@ void *bytes_process(void *arg)
 
 void *serv_worker(void *arg)
 {
-	string ipaddr = GetConfigureString("RTSP.ADDR", "192.168.136.120", CONFFILE);
-	string port = GetConfigureString("RTSP.PORT", "10086", CONFFILE);
+	string ipaddr = GetConfigureString("RTSP.ADDR", "192.168.136.120");
+	string port = GetConfigureString("RTSP.PORT", "10086");
 	serv_rtsp_info = create_rtsp_serv_info(clnt_rtsp_info, "/video/test", ipaddr.c_str(), port.c_str());
 
 	print_rtsp_info(clnt_rtsp_info);

@@ -18,9 +18,7 @@
 #include <pthread.h>
 #include <errno.h>
 
-#include "functions.h"
 #include "rtsp_util.h"
-#include "rtsp_struct.h"
 #include "rtsp_client.h"
 #include "rtsp_server.h"
 

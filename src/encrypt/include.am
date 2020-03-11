@@ -1,0 +1,6 @@
+encrypt_dir=encrypt
+encrypt_SOURCES=$(encrypt_dir)/kgr_des.cpp \
+				$(encrypt_dir)/kgr_md5.cpp \
+				$(encrypt_dir)/kgr_rsa.cpp \
+				$(encrypt_dir)/kgr_base64.cpp
+

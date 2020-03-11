@@ -1,0 +1,5 @@
+common_dir=common
+common_SOURCES=$(common_dir)/kgr_utils.cpp \
+			   $(common_dir)/kgr_bytes.cpp \
+			   $(common_dir)/kgr_logger.cpp 
+
