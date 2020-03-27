@@ -12,6 +12,7 @@
 #ifndef _SDP_CODEC_H_H_H
 #define _SDP_CODEC_H_H_H
 
+#include <string>
 
 struct sdp_origin {
 	char *username;
@@ -61,13 +62,18 @@ struct sdp_mediainfo{
 	int fmt_count;
 };
 
+struct encryption_key{
+	char *method;
+	char *key;
+};
+
 struct sdp_media{
 	struct sdp_mediainfo info;
 	char *title;
 	struct sdp_connection conn;
 	struct bandwidth *bw;
 	int bw_count;
-	char *encrypt_key;
+	struct encryption_key encrypt;
 	char **attributes;
 	int attributes_count;
 };
@@ -88,14 +94,16 @@ typedef struct {
 	struct sdp_time *times;
 	int times_count;
 	struct sdp_timezone_adjustments *timezone_adj;
-	char *encrypt_key;
-	char **attribytes;
+	int timezone_adj_count;
+	struct encryption_key encrypt;
+	char **attributes;
 	int attributes_count;
 	struct sdp_media *medias;
 	int medias_count;
 }sdp_payload;
 
 struct sdp_payload *sdp_parser(const char *payload);
+std::string str_format(const char *fmt, ...);
 std::string sdp_format(const struct sdp_payload *sdp);
 void sdp_destroy(struct sdp_payload *sdp);
 
