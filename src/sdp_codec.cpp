@@ -2,7 +2,7 @@
 //  Copyright (C) 2020 by Jiaxing Shao. All rights reserved
 //
 //  文 件 名:  sdp_codec.cpp
-//  作    者:  Jiaxing Shao, 13315567369@163.com
+//  作    者:  SJX, 13315567369@163.com
 //  版 本 号:  1.0
 //  创建时间:  2020年03月25日
 //  Compiler:  g++
@@ -11,13 +11,139 @@
 
 #include "sdp_codec.h"
 
-struct sdp_payload *sdp_parser(const char *payload)
+char *load_next_entry(char *p, char *key, char **value)
 {
-	sdp_payload *sdp = (sdp_payload*)malloc(sizeof(sdp_payload));
-	if(sdp == NULL){
+	char *endl = NULL;
+	if(!p){
+		return NULL;
+	}
+	if((endl = strstr(p, "\r\n")) == NULL){
+		endl = strchr(p, '\n');
+	}
+	if(endl){
+		while(*endl == '\r' || *endl == '\n'){
+			*endl++ = '\0';
+		}
+	}else{
+		endl = &p[strlen(p)];
+	}
+	if(!p[0] || p[1] != '='){
 		goto fail;
 	}
 
+	*key = p[0];
+	*value = &p[2];
+	return endl;
+
+fail:
+	*key = 0;
+	*value = NULL;
+	return NULL;
+}
+
+char *split_values(char *p, char sep, const char *fmt, ...)
+{
+	va_list va;
+	va_start(va, fmt);
+
+	while(*p == sep){
+		p++;
+	}
+	while(*fmt){
+		char **s, *tmp;
+		int *i;
+		long long int *l;
+		time_t *t;
+
+		switch(*fmt++){
+			case 's':
+				s = va_arg(va, char **);
+				*s = p;
+				tmp = strchr(p, sep);
+				if(tmp){
+					while(*tmp == sep){
+						*tmp++ == '\0';
+					}
+					p = tmp;
+				}else{
+					p = &p[strlen(p)];
+				}
+				break;
+			case 'l':
+				l = va_arg(va, long long int *);
+				*l = strtoll(p, &tmp, 10);
+				if(tmp == p){
+					*p = 0;
+				}else{
+					p = tmp;
+				}
+				break;
+			case 'i':
+				i = va_arg(va, int *);
+				*i = strtol(p, &tmp, 10);
+				if(tmp == p){
+					*p = 0;
+				}else{
+					p = tmp;
+				}
+				break;
+			case 't':
+				t = va_arg(va, time_t *);
+				*i = strtol(p, &tmp, 10);
+				if(tmp == p){
+					*p = 0;
+				}else{
+					p = tmp;
+					switch(*p){
+						case 'd': *t *= 86400; p++; break;
+						case 'h': *t *=  3600; p++; break;
+						case 'm': *t *=    60; p++; break;
+					}
+				}
+				break;
+		}
+		while(*p == sep){
+			p++;
+		}
+	}
+	va_end(va);
+	return p;
+}
+
+struct sdp_payload *sdp_parser(const char *payload)
+{
+	struct sdp_payload *sdp = NULL;
+	char *p, key, *value;
+
+	sdp = (sdp_payload*)malloc(sizeof(sdp_payload));
+	if(!sdp){
+		goto fail;
+	}
+	p = sdp->_payload = strdup(payload);
+	if(!p){
+		goto fail;
+	}
+
+	/**/
+	p = load_next_entry(p, &key, &value);
+	if(key != 'v'){
+		goto fail;
+	}
+	sdp->proto_version = value[0] - '0';
+	if(sdp->proto_version != 0 || value[1]){
+		goto fail;
+	}
+
+	/**/
+	p = load_next_entry(p, &key, &value);
+	if(key != 'o'){
+		goto fail;
+	}else{
+	/*
+		struct sdp_origin *o = &sdp->origin;
+		split_values(value, ' ', "sllsss", &o->username, &o->sess_id, &o->sess_version, &o->nettype, &o->addrtype, &o->addr);
+	*/
+	}
 	return sdp;
 
 fail:
@@ -69,7 +195,7 @@ std::string sdp_format(const struct sdp_payload *sdp)
 		sdp_data += str_format("t=%ld %ld\r\n", sdp->times[i].starttime, sdp->times[i].stoptime);
 		for(int j = 0; j < sdp->times[i].repeat_count; j++){
 			sdp_data += str_format("r=%ld %ld");
-			for(int k = 0; k < sdp->tims[i].repeat[j].offsets_count; k++){
+			for(int k = 0; k < sdp->times[i].repeat[j].offsets_count; k++){
 				sdp_data += str_format(" %d", sdp->times[i].repeat[j].offsets[k]);
 			}
 			sdp_data += "\r\n";
@@ -78,7 +204,7 @@ std::string sdp_format(const struct sdp_payload *sdp)
 	if(sdp->timezone_adj){
 		sdp_data += "z=";
 		for(int i = 0; i < sdp->timezone_adj_count; i++){
-			sdp_data += str_format("%d %d ", sdp->timezone_adj[i].adject, sdp->timezone_adj[i].offset);
+			sdp_data += str_format("%d %d ", sdp->timezone_adj[i].adjust, sdp->timezone_adj[i].offset);
 		}
 		sdp_data += "\r\n";
 	}
@@ -108,30 +234,26 @@ std::string sdp_format(const struct sdp_payload *sdp)
 		if(sdp->medias[i].conn.nettype || sdp->medias[i].conn.addrtype || sdp->medias[i].conn.address){
 			sdp_data += str_format("c=%s %s %s\r\n", sdp->medias[i].conn.nettype, sdp->medias[i].conn.addrtype, sdp->medias[i].conn.address);
 		}
-		for(int j = 0; j < sdp->medias[i]->bw_count; j++){
-			sdp_data += str_format("b=%s %s\r\n", sdp->medias[i]->bw[j].bwtype, sdp->medias[i]->bw[j].bandwidth);
+		for(int j = 0; j < sdp->medias[i].bw_count; j++){
+			sdp_data += str_format("b=%s %s\r\n", sdp->medias[i].bw[j].bwtype, sdp->medias[i].bw[j].bandwidth);
 		}
-		if(sdp->medias[i]->encrypt.method){
-			if(sdp->medias[i]->encrypt.key){
-				sdp_data += str_format("k=%s:%s\r\n", sdp->medias[i]->encrypt.method, sdp->medias[i]->encrypt.key);
+		if(sdp->medias[i].encrypt.method){
+			if(sdp->medias[i].encrypt.key){
+				sdp_data += str_format("k=%s:%s\r\n", sdp->medias[i].encrypt.method, sdp->medias[i].encrypt.key);
 			}else{
-				sdp_data += str_format("k=%s\r\n", sdp->medias[i]->encrypt.method);
+				sdp_data += str_format("k=%s\r\n", sdp->medias[i].encrypt.method);
 			}
 		}
-		for(int j = 0; j < sdp->medisa[i]->attributes_count; j++){
-			sdp_data += str_format("a=%s\r\n", sdp->medias[i]->attributes[j]);
+		for(int j = 0; j < sdp->medias[i].attributes_count; j++){
+			sdp_data += str_format("a=%s\r\n", sdp->medias[i].attributes[j]);
 		}
 	}
-	return str_data;
+	return sdp_data;
 }
 
 void sdp_destroy(struct sdp_payload *sdp)
 {
 	if(sdp == NULL){
-		free(sdp->origin.username);
-		free(sdp->origin.nettype);
-		free(sdp->origin.addrtype);
-		free(sdp->origin.addr);
 		free(sdp->session_name);
 		free(sdp->session_info);
 		free(sdp->uri);
@@ -153,17 +275,17 @@ void sdp_destroy(struct sdp_payload *sdp)
 		}
 		free(sdp->times);
 		free(sdp->timezone_adj);
-		free(sdp->encrypt->method);
-		free(sdp->encrypt->key);
+		free(sdp->encrypt.method);
+		free(sdp->encrypt.key);
 		free(sdp->attributes);
-		for(int i = 0; i < medias_count; i++){
-			free(sdp->medias[i].titles);
+		for(int i = 0; i < sdp->medias_count; i++){
+			free(sdp->medias[i].title);
 			for(int j = 0; j < sdp->medias[i].bw_count; j++){
 				free(sdp->medias[i].bw[j].bwtype);
 				free(sdp->medias[i].bw[j].bandwidth);
 			}
-			free(sdp->medias[i].encrypt->method);
-			free(sdp->medias[i].encrypt->key);
+			free(sdp->medias[i].encrypt.method);
+			free(sdp->medias[i].encrypt.key);
 			free(sdp->medias[i].attributes);
 		}
 		free(sdp->medias);

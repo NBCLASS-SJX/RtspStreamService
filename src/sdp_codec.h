@@ -2,17 +2,24 @@
 //  Copyright (C) 2020 by Jiaxing Shao. All rights reserved
 //
 //  文 件 名:  sdp_codec.h
-//  作    者:  Jiaxing Shao, 13315567369@163.com
+//  作    者:  SJX, 13315567369@163.com
 //  版 本 号:  1.0
 //  创建时间:  2020年03月25日
 //  Compiler:  g++
-//  描    述:  
+//  描    述:  引荐自 https://github.com/ubitux/Simple-SDP
 // =====================================================================================
 
 #ifndef _SDP_CODEC_H_H_H
 #define _SDP_CODEC_H_H_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <time.h>
+
+#include <list>
 #include <string>
+#include <cstring>
 
 struct sdp_origin {
 	char *username;
@@ -62,7 +69,7 @@ struct sdp_mediainfo{
 	int fmt_count;
 };
 
-struct encryption_key{
+struct sdp_encryption_key{
 	char *method;
 	char *key;
 };
@@ -71,14 +78,15 @@ struct sdp_media{
 	struct sdp_mediainfo info;
 	char *title;
 	struct sdp_connection conn;
-	struct bandwidth *bw;
+	struct sdp_bandwidth *bw;
 	int bw_count;
-	struct encryption_key encrypt;
+	struct sdp_encryption_key encrypt;
 	char **attributes;
 	int attributes_count;
 };
 
-typedef struct {
+struct sdp_payload{
+	char *_payload;
 	unsigned char proto_version;
 	struct sdp_origin origin;
 	char *session_name;
@@ -95,13 +103,15 @@ typedef struct {
 	int times_count;
 	struct sdp_timezone_adjustments *timezone_adj;
 	int timezone_adj_count;
-	struct encryption_key encrypt;
+	struct sdp_encryption_key encrypt;
 	char **attributes;
 	int attributes_count;
 	struct sdp_media *medias;
 	int medias_count;
-}sdp_payload;
+};
 
+char *load_next_entry(char *p, char *key, char **value);
+char *split_values(char *p, char sep, const char *fmt, ...);
 struct sdp_payload *sdp_parser(const char *payload);
 std::string str_format(const char *fmt, ...);
 std::string sdp_format(const struct sdp_payload *sdp);
