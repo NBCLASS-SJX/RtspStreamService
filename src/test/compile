@@ -1,0 +1,2 @@
+g++ -g -o test_sdp ../sdp_codec.cpp test_sdp.cpp
+

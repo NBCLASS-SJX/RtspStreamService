@@ -9,27 +9,28 @@
 //  描    述:  
 // =====================================================================================
 
-#include "sdp_codec.h"
+#include "../sdp_codec.h"
 #include <iostream>
+#include <fstream>
+using namespace std;
 
 int main()
 {
 	char payload[1024] = { 0 };
-	int fd = open("payload.sdp", O_RDONLY);
-	int n = read(fd, payload, sizeof(payload));
-	close(fd);
-	if(n < 0){
-		perror("read");
+	fstream file("payload.sdp", ios::in | ios::out);
+	if(!file.is_open()){
 		return 1;
 	}
+	file.read(payload, sizeof(payload));
+	file.close();
 	struct sdp_payload *sdp = sdp_parser(payload);
 	std::string sdp_data = sdp_format(sdp);
-	sdp_destroy(sdp);
 	if(sdp_data.length() > 0){
 		std::cout << sdp_data << std::endl;
 	}else{
 		std::cout << "error" << std::endl;
 	}
+	sdp_destroy(sdp);
 	return 0;
 }
 

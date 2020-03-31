@@ -45,6 +45,7 @@ char *split_values(char *p, char sep, const char *fmt, ...)
 {
 	va_list va;
 	va_start(va, fmt);
+	char *temp = p;
 
 	while(*p == sep){
 		p++;
@@ -62,7 +63,7 @@ char *split_values(char *p, char sep, const char *fmt, ...)
 				tmp = strchr(p, sep);
 				if(tmp){
 					while(*tmp == sep){
-						*tmp++ == '\0';
+						*tmp++ = '\0';
 					}
 					p = tmp;
 				}else{
@@ -89,15 +90,15 @@ char *split_values(char *p, char sep, const char *fmt, ...)
 				break;
 			case 't':
 				t = va_arg(va, time_t *);
-				*i = strtol(p, &tmp, 10);
+				*t = strtol(p, &tmp, 10);
 				if(tmp == p){
 					*p = 0;
 				}else{
 					p = tmp;
 					switch(*p){
-						case 'd': *t *= 86400; p++; break;
-						case 'h': *t *=  3600; p++; break;
-						case 'm': *t *=    60; p++; break;
+						case 'd': *t *= 86400; *p++; break;
+						case 'h': *t *=  3600; *p++; break;
+						case 'm': *t *=    60; *p++; break;
 					}
 				}
 				break;
@@ -110,12 +111,29 @@ char *split_values(char *p, char sep, const char *fmt, ...)
 	return p;
 }
 
+#define ALLOCATE_MEM(filed) do{													\
+	if(!filed){																	\
+		filed = (char**)calloc(1, sizeof(*filed));								\
+		if(!filed){																\
+			goto fail;															\
+		}																		\
+	}else{																		\
+		int n = filed##_count;													\
+		char **new_filed = (char**)realloc(filed, sizeof(*filed) * (n + 1));	\
+		if(!new_filed){															\
+			goto fail;															\
+		}																		\
+		filed = new_filed;														\
+		memset(&filed[n], 0, sizeof(*filed));									\
+	}																			\
+}while(0)
+
 struct sdp_payload *sdp_parser(const char *payload)
 {
 	struct sdp_payload *sdp = NULL;
 	char *p, key, *value;
 
-	sdp = (sdp_payload*)malloc(sizeof(sdp_payload));
+	sdp = (struct sdp_payload*)calloc(1, sizeof(struct sdp_payload));
 	if(!sdp){
 		goto fail;
 	}
@@ -124,7 +142,7 @@ struct sdp_payload *sdp_parser(const char *payload)
 		goto fail;
 	}
 
-	/**/
+	/* v=  (protocol version) */
 	p = load_next_entry(p, &key, &value);
 	if(key != 'v'){
 		goto fail;
@@ -134,16 +152,156 @@ struct sdp_payload *sdp_parser(const char *payload)
 		goto fail;
 	}
 
-	/**/
+	/* o=  (originator and session identifier) */
 	p = load_next_entry(p, &key, &value);
 	if(key != 'o'){
 		goto fail;
 	}else{
-	/*
 		struct sdp_origin *o = &sdp->origin;
 		split_values(value, ' ', "sllsss", &o->username, &o->sess_id, &o->sess_version, &o->nettype, &o->addrtype, &o->addr);
-	*/
 	}
+
+	/* s=  (session name) */
+	p = load_next_entry(p, &key, &value);
+	if(key != 's'){
+		goto fail;
+	}
+	sdp->session_name = value;
+
+	/* i=* (session information) */
+	p = load_next_entry(p, &key, &value);
+	if(key == 'i'){
+		sdp->session_info = value;
+		p = load_next_entry(p, &key, &value);
+	}
+
+	/* u=* (URI of description) */
+	if(key == 'u'){
+		sdp->uri = value;
+		p = load_next_entry(p, &key, &value);
+	}
+
+	/* e=* (email address) */
+	while(key == 'e'){
+		ALLOCATE_MEM(sdp->emails);
+		sdp->emails[sdp->emails_count++] = value;
+		p = load_next_entry(p, &key, &value);
+	}
+
+	/* p=* (phone number) */
+	while(key == 'p'){
+		ALLOCATE_MEM(sdp->phones);
+		sdp->phones[sdp->phones_count++] = value;
+		p = load_next_entry(p, &key, &value);
+	}
+
+	/* c=* (connection information -- not required if included in all media) */
+	if(key == 'c'){
+		struct sdp_connection *c = &sdp->conn;
+		split_values(value, ' ', "sss", &c->nettype, &c->addrtype, &c->address);
+		p = load_next_entry(p, &key, &value);
+	}
+
+	/* b=* (zero or more bandwidth information lines) */
+	while(key == 'b'){
+		if(!sdp->bw){
+			sdp->bw = (sdp_bandwidth*)calloc(1, sizeof(sdp_bandwidth));
+			if(!sdp->bw){
+				goto fail;
+			}
+		}else{
+			sdp_bandwidth *new_bw = (sdp_bandwidth*)realloc(sdp->bw, sizeof(sdp_bandwidth) * (sdp->bw_count + 1));
+			if(!new_bw){
+				goto fail;
+			}
+			sdp->bw = new_bw;
+			memset(&sdp->bw[sdp->bw_count], 0, sizeof(sdp_bandwidth));
+		}
+		int n = sdp->bw_count++;
+		split_values(value, ':', "ss", &sdp->bw[n].bwtype, &sdp->bw[n].bandwidth);
+		p = load_next_entry(p, &key, &value);
+	}
+
+	/* One or more time descriptions ("t=" and "r=" lines;) 
+	 * t=  (time the session is active)
+	 * r=* (zero or more repeat times)*/
+	while(key == 't'){
+		if(!sdp->times){
+			sdp->times = (sdp_time*)calloc(1, sizeof(sdp_time));
+			if(!sdp->times){
+				goto fail;
+			}
+		}else{
+			sdp_time *new_times = (sdp_time*)realloc(sdp->times, sizeof(sdp_time) * (sdp->times_count + 1));
+			if(!new_times){
+				goto fail;
+			}
+			sdp->times = new_times;
+			memset(&sdp->times[sdp->times_count], 0, sizeof(sdp_time));
+		}
+		struct sdp_time *t = &sdp->times[sdp->times_count++];
+		split_values(value, ' ', "tt", &t->starttime, &t->stoptime);
+		p = load_next_entry(p, &key, &value);
+
+		while(key == 'r'){
+			if(!t->repeat){
+				t->repeat = (sdp_repeat*)calloc(1, sizeof(sdp_repeat));
+				if(!t->repeat){
+					goto fail;
+				}
+			}else{
+				sdp_repeat *new_repeat = (sdp_repeat*)realloc(t->repeat, sizeof(sdp_repeat) * (t->repeat_count + 1));
+				if(!new_repeat){
+					goto fail;
+				}
+				t->repeat = new_repeat;
+				memset(&t->repeat[t->repeat_count], 0, sizeof(sdp_repeat));
+			}
+			struct sdp_repeat *r = &t->repeat[t->repeat_count++];
+			value = split_values(value, ' ', "tt", &r->interval, &r->duration);
+			while(*value){
+				if(!r->offsets){
+					r->offsets = (time_t*)calloc(1, sizeof(time_t));
+					if(!r->offsets){
+						goto fail;
+					}
+				}else{
+					time_t *new_offsets = (time_t*)realloc(r->offsets, sizeof(time_t) * (r->offsets_count + 1));
+					if(!new_offsets){
+						goto fail;
+					}
+					r->offsets = new_offsets;
+					r->offsets[r->offsets_count] = 0;
+				}
+				int n = r->offsets_count++;
+				value = split_values(value, ' ', "t", &r->offsets[n]);
+			}
+			p = load_next_entry(p, &key, &value);
+		}
+	}
+
+	if(key == 'z'){
+		while(*value){
+			if(!sdp->timezone_adj){
+				sdp->timezone_adj = (sdp_timezone_adjustments*)calloc(1, sizeof(sdp_timezone_adjustments));
+				if(!sdp->timezone_adj){
+					goto fail;
+				}
+			}else{
+				struct sdp_timezone_adjustments *new_timezone_adj = NULL;
+				new_timezone_adj = (sdp_timezone_adjustments*)realloc(sdp->timezone_adj, sizeof(sdp_timezone_adjustments) * (sdp->timezone_adj_count + 1));
+				if(!new_timezone_adj){
+					goto fail;
+				}
+				sdp->timezone_adj = new_timezone_adj;
+				memset(&sdp->timezone_adj[sdp->timezone_adj_count], 0, sizeof(sdp_timezone_adjustments));
+			}
+			struct sdp_timezone_adjustments *tz_adj = &sdp->timezone_adj[sdp->timezone_adj_count++];
+			value = split_values(value, ' ', "tt", &tz_adj->adjust, &tz_adj->offset);
+		}
+		p = load_next_entry(p, &key, &value);
+	}
+
 	return sdp;
 
 fail:
@@ -165,7 +323,7 @@ std::string str_format(const char *fmt, ...)
 std::string sdp_format(const struct sdp_payload *sdp)
 {
 	if(sdp == NULL){
-		return NULL;
+		return std::string();
 	}
 
 	std::string sdp_data;
@@ -189,12 +347,12 @@ std::string sdp_format(const struct sdp_payload *sdp)
 		sdp_data += str_format("c=%s %s %s\r\n", sdp->conn.nettype, sdp->conn.addrtype, sdp->conn.address);
 	}
 	for(int i = 0; i < sdp->bw_count; i++){
-		sdp_data += str_format("b=%s %s\r\n", sdp->bw[i].bwtype, sdp->bw[i].bandwidth);
+		sdp_data += str_format("b=%s:%s\r\n", sdp->bw[i].bwtype, sdp->bw[i].bandwidth);
 	}
 	for(int i = 0; i < sdp->times_count; i++){
 		sdp_data += str_format("t=%ld %ld\r\n", sdp->times[i].starttime, sdp->times[i].stoptime);
 		for(int j = 0; j < sdp->times[i].repeat_count; j++){
-			sdp_data += str_format("r=%ld %ld");
+			sdp_data += str_format("r=%ld %ld", sdp->times[i].repeat[j].interval, sdp->times[i].repeat[j].duration);
 			for(int k = 0; k < sdp->times[i].repeat[j].offsets_count; k++){
 				sdp_data += str_format(" %d", sdp->times[i].repeat[j].offsets[k]);
 			}
@@ -204,7 +362,7 @@ std::string sdp_format(const struct sdp_payload *sdp)
 	if(sdp->timezone_adj){
 		sdp_data += "z=";
 		for(int i = 0; i < sdp->timezone_adj_count; i++){
-			sdp_data += str_format("%d %d ", sdp->timezone_adj[i].adjust, sdp->timezone_adj[i].offset);
+			sdp_data += str_format("%ld %ld ", sdp->timezone_adj[i].adjust, sdp->timezone_adj[i].offset);
 		}
 		sdp_data += "\r\n";
 	}
@@ -253,19 +411,10 @@ std::string sdp_format(const struct sdp_payload *sdp)
 
 void sdp_destroy(struct sdp_payload *sdp)
 {
-	if(sdp == NULL){
-		free(sdp->session_name);
-		free(sdp->session_info);
-		free(sdp->uri);
+	if(sdp){
+		free(sdp->_payload);
 		free(sdp->emails);
 		free(sdp->phones);
-		free(sdp->conn.nettype);
-		free(sdp->conn.addrtype);
-		free(sdp->conn.address);
-		for(int i = 0; i < sdp->bw_count; i++){
-			free(sdp->bw[i].bwtype);
-			free(sdp->bw[i].bandwidth);
-		}
 		free(sdp->bw);
 		for(int i = 0; i < sdp->times_count; i++){
 			for(int j = 0; j < sdp->times[i].repeat_count; j++){
@@ -279,13 +428,6 @@ void sdp_destroy(struct sdp_payload *sdp)
 		free(sdp->encrypt.key);
 		free(sdp->attributes);
 		for(int i = 0; i < sdp->medias_count; i++){
-			free(sdp->medias[i].title);
-			for(int j = 0; j < sdp->medias[i].bw_count; j++){
-				free(sdp->medias[i].bw[j].bwtype);
-				free(sdp->medias[i].bw[j].bandwidth);
-			}
-			free(sdp->medias[i].encrypt.method);
-			free(sdp->medias[i].encrypt.key);
 			free(sdp->medias[i].attributes);
 		}
 		free(sdp->medias);
