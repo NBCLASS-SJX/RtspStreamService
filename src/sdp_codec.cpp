@@ -280,6 +280,7 @@ struct sdp_payload *sdp_parser(const char *payload)
 		}
 	}
 
+	/**/
 	if(key == 'z'){
 		while(*value){
 			if(!sdp->timezone_adj){
@@ -299,6 +300,53 @@ struct sdp_payload *sdp_parser(const char *payload)
 			struct sdp_timezone_adjustments *tz_adj = &sdp->timezone_adj[sdp->timezone_adj_count++];
 			value = split_values(value, ' ', "tt", &tz_adj->adjust, &tz_adj->offset);
 		}
+		p = load_next_entry(p, &key, &value);
+	}
+
+	/**/
+	if(key == 'k'){
+		sdp->encrypt_key = value;
+		p = load_next_entry(p, &key, &value);
+	}
+
+	while(key == 'a'){
+		ALLOCATE_MEM(sdp->attributes);
+		sdp->attributes[sdp->attributes_count++] = value;
+		p = load_next_entry(p, &key, &value);
+	}
+
+	while(key == 'm'){
+		if(!sdp->medias){
+			sdp->medias = (sdp_media*)calloc(1, sizeof(sdp_media));
+			if(!sdp->medias){
+				goto fail;
+			}
+		}else{
+			struct sdp_media *new_medias = (sdp_media*)realloc(sdp->medias, sizeof(sdp_media) * (sdp->medias_count + 1));
+			if(!new_medias){
+				goto fail;
+			}
+			memset(&new_medias[sdp->medias_count], 0, sizeof(sdp_media));
+			sdp->medias = new_medias;
+		}
+		struct sdp_media *m = &sdp->medias[sdp->medias_count++];
+		value = split_values(value, ' ', "s", &m->info.type);
+		m->info.port = strtol(value, &value, 10);
+		if(*value == '/'){
+			m->info.port_n = strtol(value + 1, &value, 10);
+		}
+		value = split_values(value, ' ', "s", &m->info.proto);
+		while(*value){
+			int *new_fmt = (int*)realloc(m->info.fmt, sizeof(int));
+			if(!new_fmt){
+				goto fail;
+			}
+			m->info.fmt = new_fmt;
+			value = split_values(value, ' ', "i", &m->info.fmt[m->info.fmt_count++]);
+		}
+
+		p = load_next_entry(p, &key, &value);
+		p = load_next_entry(p, &key, &value);
 		p = load_next_entry(p, &key, &value);
 	}
 
@@ -366,12 +414,8 @@ std::string sdp_format(const struct sdp_payload *sdp)
 		}
 		sdp_data += "\r\n";
 	}
-	if(sdp->encrypt.method){
-		if(sdp->encrypt.key){
-			sdp_data += str_format("k=%s:%s\r\n", sdp->encrypt.method, sdp->encrypt.key);
-		}else{
-			sdp_data += str_format("k=%s\r\n", sdp->encrypt.method);
-		}
+	if(sdp->encrypt_key){
+		sdp_data += str_format("k=%s\r\n", sdp->encrypt_key);
 	}
 	for(int i = 0; i < sdp->attributes_count; i++){
 		sdp_data += str_format("a=%s\r\n", sdp->attributes[i]);
@@ -395,12 +439,8 @@ std::string sdp_format(const struct sdp_payload *sdp)
 		for(int j = 0; j < sdp->medias[i].bw_count; j++){
 			sdp_data += str_format("b=%s %s\r\n", sdp->medias[i].bw[j].bwtype, sdp->medias[i].bw[j].bandwidth);
 		}
-		if(sdp->medias[i].encrypt.method){
-			if(sdp->medias[i].encrypt.key){
-				sdp_data += str_format("k=%s:%s\r\n", sdp->medias[i].encrypt.method, sdp->medias[i].encrypt.key);
-			}else{
-				sdp_data += str_format("k=%s\r\n", sdp->medias[i].encrypt.method);
-			}
+		if(sdp->medias[i].encrypt_key){
+			sdp_data += str_format("k=%s\r\n", sdp->medias[i].encrypt_key);
 		}
 		for(int j = 0; j < sdp->medias[i].attributes_count; j++){
 			sdp_data += str_format("a=%s\r\n", sdp->medias[i].attributes[j]);
@@ -424,10 +464,10 @@ void sdp_destroy(struct sdp_payload *sdp)
 		}
 		free(sdp->times);
 		free(sdp->timezone_adj);
-		free(sdp->encrypt.method);
-		free(sdp->encrypt.key);
 		free(sdp->attributes);
 		for(int i = 0; i < sdp->medias_count; i++){
+			free(sdp->medias[i].info.fmt);
+			free(sdp->medias[i].bw);
 			free(sdp->medias[i].attributes);
 		}
 		free(sdp->medias);

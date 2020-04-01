@@ -69,18 +69,13 @@ struct sdp_mediainfo{
 	int fmt_count;
 };
 
-struct sdp_encryption_key{
-	char *method;
-	char *key;
-};
-
 struct sdp_media{
 	struct sdp_mediainfo info;
 	char *title;
 	struct sdp_connection conn;
 	struct sdp_bandwidth *bw;
 	int bw_count;
-	struct sdp_encryption_key encrypt;
+	char *encrypt_key;
 	char **attributes;
 	int attributes_count;
 };
@@ -103,7 +98,7 @@ struct sdp_payload{
 	int times_count;
 	struct sdp_timezone_adjustments *timezone_adj;
 	int timezone_adj_count;
-	struct sdp_encryption_key encrypt;
+	char *encrypt_key;
 	char **attributes;
 	int attributes_count;
 	struct sdp_media *medias;
