@@ -17,7 +17,6 @@
 #include <stdarg.h>
 #include <time.h>
 
-#include <list>
 #include <string>
 #include <cstring>
 

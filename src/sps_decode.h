@@ -16,10 +16,6 @@
 #include <string.h>
 #include <math.h>
 
-typedef  unsigned int UINT;
-typedef  unsigned char BYTE;
-typedef  unsigned long DWORD;
-
 typedef struct{
 	int profile_idc;
 	int constraint_set0_flag;

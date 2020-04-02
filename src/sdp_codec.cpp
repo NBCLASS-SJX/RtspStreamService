@@ -316,19 +316,13 @@ struct sdp_payload *sdp_parser(const char *payload)
 	}
 
 	while(key == 'm'){
-		if(!sdp->medias){
-			sdp->medias = (sdp_media*)calloc(1, sizeof(sdp_media));
-			if(!sdp->medias){
-				goto fail;
-			}
-		}else{
-			struct sdp_media *new_medias = (sdp_media*)realloc(sdp->medias, sizeof(sdp_media) * (sdp->medias_count + 1));
-			if(!new_medias){
-				goto fail;
-			}
-			memset(&new_medias[sdp->medias_count], 0, sizeof(sdp_media));
-			sdp->medias = new_medias;
+		struct sdp_media *new_medias = (sdp_media*)realloc(sdp->medias, sizeof(sdp_media) * (sdp->medias_count + 1));
+		if(!new_medias){
+			goto fail;
 		}
+		memset(&new_medias[sdp->medias_count], 0, sizeof(sdp_media));
+		sdp->medias = new_medias;
+
 		struct sdp_media *m = &sdp->medias[sdp->medias_count++];
 		value = split_values(value, ' ', "s", &m->info.type);
 		m->info.port = strtol(value, &value, 10);
@@ -346,8 +340,38 @@ struct sdp_payload *sdp_parser(const char *payload)
 		}
 
 		p = load_next_entry(p, &key, &value);
-		p = load_next_entry(p, &key, &value);
-		p = load_next_entry(p, &key, &value);
+		if(key == 'i'){
+			m->title = value;
+			p = load_next_entry(p, &key, &value);
+		}
+
+		if(key == 'c'){
+			split_values(value, ' ', "sss", &m->conn.nettype, &m->conn.addrtype, &m->conn.address);
+			p = load_next_entry(p, &key, &value);
+		}
+
+		while(key == 'b'){
+			sdp_bandwidth *new_bw = (sdp_bandwidth*)realloc(m->bw, sizeof(sdp_bandwidth) * (m->bw_count + 1));
+			if(!new_bw){
+				goto fail;
+			}
+			m->bw = new_bw;
+			memset(&m->bw[m->bw_count], 0, sizeof(sdp_bandwidth));
+			int n = m->bw_count++;
+			split_values(value, ':', "ss", &m->bw[n].bwtype, &m->bw[n].bandwidth);
+			p = load_next_entry(p, &key, &value);
+		}
+
+		if(key == 'k'){
+			m->encrypt_key = value;
+			p = load_next_entry(p, &key, &value);
+		}
+
+		while(key == 'a'){
+			ALLOCATE_MEM(m->attributes);
+			m->attributes[m->attributes_count++] = value;
+			p = load_next_entry(p, &key, &value);
+		}
 	}
 
 	return sdp;
@@ -437,7 +461,7 @@ std::string sdp_format(const struct sdp_payload *sdp)
 			sdp_data += str_format("c=%s %s %s\r\n", sdp->medias[i].conn.nettype, sdp->medias[i].conn.addrtype, sdp->medias[i].conn.address);
 		}
 		for(int j = 0; j < sdp->medias[i].bw_count; j++){
-			sdp_data += str_format("b=%s %s\r\n", sdp->medias[i].bw[j].bwtype, sdp->medias[i].bw[j].bandwidth);
+			sdp_data += str_format("b=%s:%s\r\n", sdp->medias[i].bw[j].bwtype, sdp->medias[i].bw[j].bandwidth);
 		}
 		if(sdp->medias[i].encrypt_key){
 			sdp_data += str_format("k=%s\r\n", sdp->medias[i].encrypt_key);

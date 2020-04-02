@@ -19,6 +19,23 @@ r=123 12090 90 80
 r=89 890 09
 z=2882844526 -1h 2898848070 0
 a=X-ConferenceModel: foo 01234567890987654321098765432109876543210
-m=audio 3456 RTP/AVP 10 5
-a=rtpmap:0 PCMU/8000
-a=rtpmap:5 DVI4/8000
+m=video 5088RTP/AVP 96
+i=This is a very short description.
+c=IN IP4 224.2.0.1/127
+b=AS:949
+a=rtpmap:96 H264/90000
+a=fmtp:96 profile-level-id=4D4015;sprop-parameter-sets=Z01AFZZWCwSbCEiAAAH0AAAw1DBgAHP2AOg1cABQ,aO88gA==;packetization-mode=1
+a=cliprect:0,0,576,352
+a=framerate:25.
+a=mpeg4-esid:201
+a=x-envivio-verid:0002229D
+m=audio 5090 RTP/AVP 97
+i=This is a very short description.
+c=IN IP4 224.2.0.1/127
+b=AS:50
+a=rtpmap:97 mpeg4-generic/24000/2
+a=fmtp:97 profile-level-id=15; config=1310;streamtype=5; ObjectType=64; mode=AAC-hbr; SizeLength=13;IndexLength=3;IndexDeltaLength=3
+a=mpeg4-esid:101
+a=lang:eng
+a=x-envivio-verid:0002229D
+

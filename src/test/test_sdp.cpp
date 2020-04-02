@@ -16,7 +16,7 @@ using namespace std;
 
 int main()
 {
-	char payload[1024] = { 0 };
+	char payload[4096] = { 0 };
 	fstream file("payload.sdp", ios::in | ios::out);
 	if(!file.is_open()){
 		return 1;
