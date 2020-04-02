@@ -14,18 +14,20 @@
 #define LINE_SIZE 128
 
 #include "rtsp_struct.h"
-#include <string>
-#include <cstring>
+#include <string.h>
+//#include <cstring>
 
 
-void rtsp_append_header_cmd(string &msg, enum_rtsp_step cmd, char *url);
-void rtsp_append_header_reply(string &msg, int status_code);
-void rtsp_append_header_cseq(string &msg, int cmd_seq);
-void rtsp_append_header_authorization_basic(string &msg, char *basic);
-void rtsp_append_header_authorization_digest(string &msg, const char *user, const char *realm, const char *nonce, const char *url, const char *response);
-void rtsp_append_header_session(string &msg, const char *session);
-void rtsp_append_header_range(string &msg, double npt_start, double npt_end);
-void rtsp_append_header_transport(string &msg, enum_rtsp_transport_type type, int streamOutgoing, int chn_start, int chn_end, const char *ssrc);
+void rtsp_append_header(char *msg, char *fmt, ...);
+
+void rtsp_append_header_cmd(char *msg, enum_rtsp_step cmd, char *url);
+void rtsp_append_header_reply(char *msg, int status_code);
+void rtsp_append_header_cseq(char *msg, int cmd_seq);
+void rtsp_append_header_authorization_basic(char *msg, char *basic);
+void rtsp_append_header_authorization_digest(char *msg, const char *user, const char *realm, const char *nonce, const char *url, const char *response);
+void rtsp_append_header_session(char *msg, const char *session);
+void rtsp_append_header_range(char *msg, double npt_start, double npt_end);
+void rtsp_append_header_transport(char *msg, enum_rtsp_transport_type type, int streamOutgoing, int chn_start, int chn_end, const char *ssrc);
 void rtsp_append_header_date(string &msg);
 void rtsp_append_header_public(string &msg);
 void rtsp_append_header_rtpinfo(string &msg, const char *url, unsigned int seq, unsigned int rtptime);
